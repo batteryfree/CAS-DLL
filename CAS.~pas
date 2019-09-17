@@ -1,0 +1,127 @@
+unit CAS;
+
+{$WARN SYMBOL_PLATFORM OFF}
+
+interface
+
+uses
+  ComObj, ActiveX, CAS_DB_II_TLB, StdVcl, WinTypes, SysUtils;
+
+type
+  TCASDBII = class(TAutoObject, ICASDBII)
+  protected
+    function PortConnect(COMNUM, BAUTRATE: Integer): WideString; safecall;
+    function Weight(out Weight: WideString): WideString; safecall;
+    function PortDisconnect: WideString; safecall;
+
+  end;
+
+implementation
+
+uses ComServ;
+
+var
+ DCB   : TDCB;
+ hPort : THandle;
+ TimeoutBuffer : PCOMMTIMEOUTS;
+ MyBuff: array[0..40] of byte;
+ NumberOfBytesReaded: DWORD;
+ Str: string;
+ I,J: integer;
+ Connecting: boolean = false;
+
+function TCASDBII.PortConnect(COMNUM, BAUTRATE: Integer): WideString;
+begin
+    try
+     CloseHandle(hPort);
+    except
+    end;
+
+    hPort := CreateFile(PChar('COM'+IntToStr(COMNUM)),
+                        GENERIC_READ + GENERIC_WRITE,
+                        0, nil,
+                        OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, 0);
+    if hPort <> INVALID_HANDLE_VALUE then
+      begin
+
+
+        if GetCommState(hPort, DCB) then
+          begin
+            DCB.BaudRate:=BAUTRATE;
+            DCB.Parity:=NOPARITY;
+            DCB.ByteSize:=8;
+            DCB.StopBits:=OneStopBit;
+            if SetCommState(hPort, DCB) then
+              begin
+                PurgeComm(hPort, PURGE_RXABORT);
+                PurgeComm(hPort, PURGE_RXCLEAR);
+                GetMem(TimeoutBuffer, sizeof(COMMTIMEOUTS));
+                GetCommTimeouts (hPort, TimeoutBuffer^);
+                TimeoutBuffer.ReadIntervalTimeout        := 300;
+                TimeoutBuffer.ReadTotalTimeoutMultiplier := 300;
+                TimeoutBuffer.ReadTotalTimeoutConstant   := 300;
+                SetCommTimeouts (hPort, TimeoutBuffer^);
+                FreeMem(TimeoutBuffer, sizeof(COMMTIMEOUTS));
+                Connecting:=true;
+                Str:='No Err Connect';
+              end
+            else
+             Str:='Err 03'
+          end
+        else
+          Str:='Err 02'
+      end
+    else
+      Str:='Err 01';
+  result:=Str;
+end;
+
+function TCASDBII.Weight(out Weight: WideString): WideString;
+begin
+Weight:= '000.00';
+Str:='Err 05';
+if Connecting then
+ begin
+   PurgeComm(hPort,PURGE_RXCLEAR);
+
+   if not ReadFile(hPort, MyBuff, SizeOf(MyBuff), NumberOfBytesReaded, nil) then
+      begin
+        Str:='Err 04';
+      end
+   else
+      begin
+        if NumberOfBytesReaded >39 then
+          begin
+            for I:=0 to NumberOfBytesReaded-1 do
+              begin
+                if MyBuff[I]=$0A then
+                Break;
+              end;
+           Str:='';
+           for J := I+11 to 17+I do
+              Str:=Str + Chr(MyBuff[j]);
+              Weight:=Str;
+              Str:='No Err Read';
+          end
+        else
+          Str:='Err 06';
+      end;
+
+ end;
+ Result:=Str;
+end;
+
+function TCASDBII.PortDisconnect: WideString;
+begin
+    try
+     CloseHandle(hPort);
+    except
+    end;
+    Connecting:=false ;
+    Result:='Disconnect';
+end;
+
+initialization
+  TAutoObjectFactory.Create(ComServer, TCASDBII, Class_CASDBII,
+    ciMultiInstance, tmApartment);
+end.

@@ -1,0 +1,37 @@
+[
+  uuid(5C5431EC-9D4D-4048-8DF7-1D8251CDD1C3), 
+  version(1.0), 
+  helpstring("Project1 Library")
+    
+]
+library CAS_DB_II
+{
+
+  importlib("stdole2.tlb");
+
+  [
+    uuid(DAE71D65-F275-4EFA-9951-AE570D36F4F1), 
+    version(1.0), 
+    helpstring("Dispatch interface for CASDBII Object"), 
+    dual, 
+    oleautomation
+  ]
+   interface ICASDBII: IDispatch
+  {
+    [
+    id(0x000000C9)
+    ]
+    HRESULT _stdcall PortConnect([in] long COMNUM, [in] long BAUTRATE, [out, retval] BSTR STATUS );
+  };
+
+  [
+    uuid(33A49F88-9A67-40E0-8FA0-E225ED3C7A6D), 
+    version(1.0), 
+    helpstring("CASDBII Object")
+  ]
+  coclass CASDBII
+  {
+    [default] interface ICASDBII;
+  };
+
+}; 
